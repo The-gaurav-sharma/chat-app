@@ -8,7 +8,7 @@ import express from "express";
 import cors from "cors";
 import { clerkMiddleware } from '@clerk/express'
 import dns from "dns";
-import { connectDB } from "./src/lib/db.js";
+import { connectDB } from "./lib/db.js";
 import fs from "fs";
 import path from "path";
 
