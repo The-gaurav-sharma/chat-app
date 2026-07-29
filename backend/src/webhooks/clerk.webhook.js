@@ -1,61 +1,63 @@
-import express from "express";;
-import User from "../models/user.model.js";
-import {verifyWebhook} from "@clerk/backend/webhooks";
+router.post("/", async (req, res) => {
+  console.log("========== WEBHOOK RECEIVED ==========");
 
-const router = express.Router();
+  try {
+    const signingSecret = process.env.CLERK_WEBHOOK_SIGNING_SECRET;
 
-router.post("/", async(req, res)=>{
-    try {
-        const signingSecret = process.env.CLERK_WEBHOOK_SIGNING_SECRET;
-    if(!signingSecret){
-        res.status(503).json({
-            message:"Webhook Secret is not provided"})
-            return;
+    if (!signingSecret) {
+      throw new Error("Missing CLERK_WEBHOOK_SIGNING_SECRET");
     }
 
-    const payload = Buffer.isBuffer(req.body)? req.body.toString("utf8") : String(req.body);
+    const payload = Buffer.isBuffer(req.body)
+      ? req.body.toString("utf8")
+      : String(req.body);
+
     const request = new Request("http://internal/webhooks/clerk", {
-        method:"POST",
-        headers: new Headers(req.headers),
-        body:payload
+      method: "POST",
+      headers: new Headers(req.headers),
+      body: payload,
     });
 
-    const evt = await verifyWebhook(request, {signingSecret});
+    const evt = await verifyWebhook(request, { signingSecret });
 
-    if(evt.type==="user.created" || evt.type === "user.updated"){
-        
-        const u = evt.data;
+    console.log("Event:", evt.type);
 
-        const email = 
-        u.email_addresses?.find((e) => e.id === u.primary_email_address_id)?.email_address ??
-        u.email_addresses?.[0]?.email_address;
+    const u = evt.data;
 
-        const fullName = 
-        [u.first_name, u.last_name].filter(Boolean).join(" ") ||
-        u.username ||
-        email?.split("@")[0];
+    console.log("User ID:", u.id);
 
-        await User.findByIdAndUpdate(
-            {clerkId: u.id},
-            {clerkId: u.id , email, fullName, profilePic: u.image_url},
-            {new: true, upsert:true, setDefaultsOnInsert:true}
-        );
+    const email =
+      u.email_addresses?.find(
+        (e) => e.id === u.primary_email_address_id
+      )?.email_address ?? u.email_addresses?.[0]?.email_address;
 
-    }
+    console.log("Email:", email);
 
-    if(evt.type === "user.deleted"){
-        if (evt.data.id) await User.findOneAndDelete({clerkId: evt.data.id})
-    }
+    const user = await User.findOneAndUpdate(
+      { clerkId: u.id },
+      {
+        clerkId: u.id,
+        email,
+        fullName: `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim(),
+        profilePic: u.image_url,
+      },
+      {
+        new: true,
+        upsert: true,
+      }
+    );
 
-    res.status(200).json({received:true});
-    } catch (error) {
-        console.error(400).json({message: "Webhook verification Failed"});
-    }
+    console.log("Saved:", user);
 
+    return res.status(200).json({ received: true });
 
-})
+  } catch (error) {
+    console.error("========== WEBHOOK ERROR ==========");
+    console.error(error);
+    console.error(error.stack);
 
-
-export default router;
-
-
+    return res.status(500).json({
+      message: error.message,
+    });
+  }
+});
