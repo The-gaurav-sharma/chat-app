@@ -12,7 +12,8 @@ import { connectDB } from "./lib/db.js";
 import fs from "fs";
 import path from "path";
 import job from "./lib/cron.js";
-import clerkWebhook from "./webhooks/clerk.webhook.js"
+import clerkWebhook from "./webhooks/clerk.webhook.js";
+import authRoutes from "./routes/auth.routes.js";
 
 const app = express();  
 
@@ -34,6 +35,8 @@ app.get("/health", (req,res)=>{
         success:true
     })
 })
+
+app.use("/api/auth", authRoutes);
 
 if(fs.existsSync(publicDir)){
     app.use(express.static(publicDir));``
