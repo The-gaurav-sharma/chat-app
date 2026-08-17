@@ -7,6 +7,7 @@ const STORAGE_KEY = "chat-wallpaper-id";
 function readStoredWallpaperId() {
   const wallpaperId = localStorage.getItem(STORAGE_KEY);
   if (wallpaperId) return wallpaperId;
+
   return "sonoma-horizon";
 }
 
